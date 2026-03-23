@@ -1,8 +1,8 @@
 import React, { useState } from 'react'
 import BorderAnimatedContainer from "../components/BorderAnimatedContainer";
 import { MessageCircleIcon, LockIcon, MailIcon, UserIcon, LoaderIcon } from "lucide-react";
-import { data, Link } from "react-router";
-import { useAuthStore } from '../useAuthStore';
+import { Link } from "react-router";
+import { useAuthStore } from '../store/useAuthStore';
 
 const SignupPage = () => {
   const [formData, setFormData] = useState({ fullName: "", email: "", password: "" });
