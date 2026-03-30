@@ -9,30 +9,31 @@ export const socketAuthMiddleware = async (socket, next) => {
       .find((row) => row.startsWith("jwt="))
       ?.split("=")[1];
 
-
-    if(!token){
-        console.log("Socket connection rejected: No token provided");
-        return next(new Error("Unauthorized - No Token provided"));
+    if (!token) {
+      console.log("Socket connection rejected: No token provided");
+      return next(new Error("Unauthorized - No token provided"));
     }
 
-    const decoded=jwt.verify(token,ENV.JWT_SECRET);
-    if(!decoded){
-        console.log("Socket connection rejected: Invalid token");
-        return next(new Error("Unauthorized - Invalid Token"));
+    const decoded = jwt.verify(token, ENV.JWT_SECRET);
+    if (!decoded) {
+      console.log("Socket connection rejected: Invalid token");
+      return next(new Error("Unauthorized - Invalid token"));
     }
 
-    const user=await User.findByID(decoded.userId).select("-password");
-    if(!user){
-        console.log("Socket connection rejected: User not found");
-        return next(new Error("Unauthorized - User not found"));
+    const user = await User.findById(decoded.userId).select("-password"); // fix: findById
+    if (!user) {
+      console.log("Socket connection rejected: User not found");
+      return next(new Error("Unauthorized - User not found"));
     }
 
-    socket.user=user;
-    socket.userId=user._id.to_string();
+    socket.user = user;
+    socket.userId = user._id.toString(); // fix: toString()
 
-    console.log(`Socket authenticated for user : ${user.fullName} (${user._id})`);
-    
+    console.log(`Socket authenticated for user: ${user.fullName} (${user._id})`);
     next();
 
-  } catch (error) {}
+  } catch (error) {
+    console.error("Socket auth error:", error.message); // fix: never swallow errors
+    return next(new Error("Unauthorized - Authentication failed"));
+  }
 };
