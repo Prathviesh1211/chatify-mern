@@ -17,6 +17,10 @@ const io = new Server(server, {
 
 io.use(socketAuthMiddleware);
 
+export function getReceiverSocketId(userId) {
+  return userSocketMap[userId];
+}
+
 const userSocketMap = {};
 
 io.on("connection", (socket) => {
@@ -35,5 +39,4 @@ io.on("connection", (socket) => {
   });
 });
 
-export const getReceiverSocketId = (userId) => userSocketMap[userId];
 export { io, server, app };
