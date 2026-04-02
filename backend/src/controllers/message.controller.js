@@ -119,7 +119,6 @@ export const getChatPartners = async (req, res) => {
   try {
     const loggedInUserId = req.user._id.toString();
 
-    //get all messages where user is receiver or sender
     const messages = await Message.find({
       $or: [{ senderId: loggedInUserId }, { receiverId: loggedInUserId }],
     });
@@ -135,10 +134,16 @@ export const getChatPartners = async (req, res) => {
     ];
 
     const chatPartners = await User.find({
-      _id: { $in: chatPartnerIds },
+      $or: [
+        { _id: { $in: chatPartnerIds } },
+        { isBot: true }, 
+      ],
     }).select("-password");
 
-    res.status(200).json(chatPartners);
+    // bot always on top
+    const sorted = chatPartners.sort((a, b) => (b.isBot ?? 0) - (a.isBot ?? 0));
+
+    res.status(200).json(sorted);
   } catch (error) {
     console.error("Error in getChatPartners controller:", error);
     res.status(500).json({ message: "Internal server error" });
