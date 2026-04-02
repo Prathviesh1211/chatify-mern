@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useAuthStore } from "../store/useAuthStore";
 import { useChatStore } from "../store/useChatStore";
+import ReactMarkdown from "react-markdown"; // add this import
 import ChatHeader from "./ChatHeader";
 import NoChatHistoryPlaceholder from "./NoChatHistoryPlaceholder";
 import MessagesLoadingSkeleton from "./MessagesLoadingSkeleton";
@@ -54,7 +55,11 @@ const ChatContainer = () => {
                   {msg.image && (
                     <img src={msg.image} alt="Shared" className="rounded-lg h-48 object-cover" />
                   )}
-                  {msg.text && <p className="mt-2">{msg.text}</p>}
+                  {msg.text && (
+  <div className="mt-2 prose prose-invert text-zinc-200 prose-sm max-w-none">
+    <ReactMarkdown>{msg.text}</ReactMarkdown>
+  </div>
+)}
                   <p className="text-xs mt-1 opacity-75 flex items-center gap-1">
                     {new Date(msg.createdAt).toLocaleTimeString(undefined, {
                       hour: "2-digit",
