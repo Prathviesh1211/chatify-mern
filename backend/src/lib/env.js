@@ -2,7 +2,7 @@ import "dotenv/config";
 
 export const ENV = {
   PORT: process.env.PORT,
-  MONGO_URI: process.env.MONGO_URI,
+  MONGODB_URI: process.env.MONGO_URI,
   JWT_SECRET: process.env.JWT_SECRET,
   NODE_ENV: process.env.NODE_ENV,
   CLIENT_URL: process.env.CLIENT_URL,
@@ -14,4 +14,5 @@ export const ENV = {
   CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET,
   ARCJET_KEY: process.env.ARCJET_KEY,
   ARCJET_ENV: process.env.ARCJET_ENV,
+  GEMINI_API_KEY:process.env.GEMINI_API_KEY
 };
