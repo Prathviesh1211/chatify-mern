@@ -12,6 +12,8 @@ export const useChatStore = create((set, get) => ({
   isUsersLoading: false,
   isMessagesLoading: false,
   isSoundEnabled: JSON.parse(localStorage.getItem("isSoundEnabled")) === true,
+  isOptimistic:true,
+
 
   toggleSound: () => {
     const newValue = !get().isSoundEnabled;
@@ -38,7 +40,8 @@ export const useChatStore = create((set, get) => ({
     set({ isUsersLoading: true });
     try {
       const res = await axiosInstance.get("/messages/chats");
-      set({ chats: res.data });
+      const sorted = res.data.sort((a, b) => (b.isBot ?? 0) - (a.isBot ?? 0)); // bots first
+    set({ chats: sorted });
     } catch (error) {
       toast.error(error?.response?.data?.message || "Something went wrong!");
     } finally {
@@ -59,34 +62,41 @@ export const useChatStore = create((set, get) => ({
   },
 
   sendMessage: async (messageData) => {
-    const { selectedUser, messages } = get();
-    const { authUser } = useAuthStore.getState();
+  const { selectedUser } = get();
+  const { authUser } = useAuthStore.getState();
 
-    const tempId = `temp-${Date.now()}`;
+  const tempId = `temp-${Date.now()}`;
+  const optimisticMessage = {
+    _id: tempId,
+    senderId: authUser._id,
+    receiverId: selectedUser._id,
+    text: messageData.text,
+    image: messageData.image,
+    createdAt: new Date().toISOString(),
+    isOptimistic: true,
+  };
 
-    const optimisticMessage = {
-      _id: tempId,
-      senderId: authUser._id,
-      receiverId: selectedUser._id,
-      text: messageData.text,
-      image: messageData.image,
-      createdAt: new Date().toISOString(),
-      isOptimistic: true, // flag to identify optimistic messages (optional)
-    };
+  set({ messages: [...get().messages, optimisticMessage] });
 
-    set({ messages: [...messages, optimisticMessage] });
-    try {
-      const res = await axiosInstance.post(
-        `/messages/send/${selectedUser._id}`,
-        messageData,
-      );
-      set({ messages: messages.concat(res.data) });
-    } catch (error) {
-      // remove optimistic message on failure
-      set({ messages: messages });
-      toast.error(error.response?.data?.message || "Something went wrong");
-    }
-  },
+  try {
+    const res = await axiosInstance.post(
+      `/messages/send/${selectedUser._id}`,
+      messageData,
+    );
+
+    // replace temp with real message, don't touch anything else
+    set({
+      messages: get().messages
+        .filter((m) => m._id !== tempId)
+        .concat(res.data)
+        .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt)),
+    });
+
+  } catch (error) {
+    set({ messages: get().messages.filter((m) => m._id !== tempId) });
+    toast.error(error.response?.data?.message || "Something went wrong");
+  }
+},
 
   subscribeToMessages: () => {
     const { selectedUser, isSoundEnabled } = get();
@@ -97,22 +107,23 @@ export const useChatStore = create((set, get) => ({
     const socket = useAuthStore.getState().socket;
 
     socket.on("newMessage", (newMessage) => {
-      const isMessageSentFromSelectUser=newMessage.senderId===selectedUser._id;
-      if(!isMessageSentFromSelectUser){
-        return;
-      }
-      const currentMessages = get().messages;
-      set({ messages: [...currentMessages, newMessage] });
+  const isMessageSentFromSelectedUser =
+    newMessage.senderId.toString() === selectedUser._id.toString();
 
-      if (isSoundEnabled) {
-        const notificationSound = new Audio("/sounds/notification.mp3");
+  if (!isMessageSentFromSelectedUser) return;
 
-        notificationSound.currenTime = 0;
-        notificationSound
-          .play()
-          .catch((e) => console.log("Audio play failed : ", e));
-      }
-    });
+  set({
+    messages: [...get().messages, newMessage].sort(
+      (a, b) => new Date(a.createdAt) - new Date(b.createdAt) // ← add this
+    ),
+  });
+
+  if (isSoundEnabled) {
+    const notificationSound = new Audio("/sounds/notification.mp3");
+    notificationSound.currentTime = 0; // ← also fix typo: currenTime → currentTime
+    notificationSound.play().catch((e) => console.log("Audio play failed:", e));
+  }
+});
   },
 
   unsubscribeFromMessages: () => {

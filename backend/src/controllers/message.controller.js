@@ -1,7 +1,8 @@
 import User from "../models/User.js";
 import Message from "../models/Message.js";
 import cloudinary from "../lib/cloudinary.js";
-import { io,getReceiverSocketId } from "../lib/socket.js";
+import { io, getReceiverSocketId } from "../lib/socket.js";
+import { getGeminiReply } from "../lib/gemini.js";
 
 export const getAllContacts = async (req, res) => {
   try {
@@ -53,10 +54,11 @@ export const sendMessage = async (req, res) => {
         .json({ message: "Cannot send messages to yourself" });
     }
 
-    const receiverExists = await User.exists({ _id: receiverId });
-    if (!receiverExists) {
+    const receiver = await User.findById(receiverId).select("isBot");
+    if (!receiver) {
       return res.status(404).json({ message: "Receiver not found." });
     }
+    
     let imageUrl;
     if (image) {
       const uploadResponse = await cloudinary.uploader.upload(image);
@@ -73,9 +75,37 @@ export const sendMessage = async (req, res) => {
     await newMessage.save();
 
     //todo: send message in realtime when user is online;
-    const receiverSocketId=getReceiverSocketId(receiverId);
-    if(receiverSocketId){
-      io.to(receiverSocketId).emit("newMessage",newMessage);
+    const receiverSocketId = getReceiverSocketId(receiverId);
+    if (receiverSocketId) {
+      io.to(receiverSocketId).emit("newMessage", newMessage);
+    }
+    if (receiver.isBot && text) {
+      const history = await Message.find({
+        $or: [
+          { senderId, receiverId },
+          { senderId: receiverId, receiverId: senderId },
+        ],
+      })
+        .sort({ createdAt: 1 })
+        .limit(20);
+
+      const aiText = await getGeminiReply(
+        history.map((m) => ({
+          text: m.text,
+          isBot: m.senderId.toString() === receiverId.toString(),
+        })),
+      );
+
+      const aiMessage = await Message.create({
+        senderId: receiverId,
+        receiverId: senderId,
+        text: aiText,
+      });
+
+      const senderSocketId = getReceiverSocketId(senderId.toString());
+      if (senderSocketId) {
+        io.to(senderSocketId).emit("newMessage", aiMessage);
+      }
     }
 
     res.status(201).json(newMessage);
