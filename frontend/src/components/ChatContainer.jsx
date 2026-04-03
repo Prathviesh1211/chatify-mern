@@ -34,7 +34,7 @@ const ChatContainer = () => {
       messageEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages]);
-  return (
+  return(  
     <>
     <ChatHeader />
     <div className="flex-1 px-6 overflow-y-auto py-8">
@@ -80,7 +80,8 @@ const ChatContainer = () => {
       </div>
       <MessageInput/>
     </>
-  )
+)
+  
 }
 
 export default ChatContainer
